@@ -14,6 +14,8 @@ import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
 from tensorboardX import SummaryWriter
+import subprocess
+
 
 from utils import find_latest_file
 
@@ -22,6 +24,7 @@ from utils import find_latest_file
 NONSATURATING = 'nonsaturating'
 JS = 'js'  # jensen-shannon
 WASSERSTEIN = 'wasserstein'
+SIGMOIDWASSERSTEIN = 'sigmoidwasserstein'
 NOPENALTY = 'nopenalty'
 PRE = 'pre'  # before sigmoid
 POST = 'post'  # after sigmoid
@@ -41,7 +44,8 @@ parser.add_argument('--iterations', type=int, default=100000, help='input batch 
 parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
 
 ## Gan formulation
-parser.add_argument('--formulation', default=NONSATURATING, choices=[JS, NONSATURATING, WASSERSTEIN], help='GAN formulation')
+parser.add_argument('--formulation', default=NONSATURATING,
+                    choices=[JS, NONSATURATING, WASSERSTEIN, SIGMOIDWASSERSTEIN], help='GAN formulation')
 
 ## Gradient penalty
 parser.add_argument('--gp', default=10., type=float, help='magnitude of gradient penalty')
@@ -74,6 +78,12 @@ parser.add_argument('--start-iteration', default=0, type=int, help='start counti
 args = parser.parse_args()
 print(args)
 
+# Save code version
+try:
+    args.version = subprocess.check_output(['git', 'rev-parse', 'HEAD'])
+except Exception as e:
+    args.version = '<unknown>'
+print 'Code version', args.version
 
 # Set experiment folders
 args_filename = os.path.join(args.logdir, 'args.json')
@@ -400,6 +410,8 @@ for iteration in xrange(args.start_iteration, args.iterations):
         D_classification = D_real_loss + D_fake_loss
     elif args.formulation == WASSERSTEIN:
         D_classification = D_fake.mean() - D_real.mean()  # make real higher than fake
+    elif args.formulation == SIGMOIDWASSERSTEIN:
+        D_classification = F.sigmoid(D_fake.mean() - D_real.mean())  # make real higher than fake
 
     # Get penalty
     D_gradient_penalty = args.gp * get_gradient_penalty(real, fake, args.gp_type)
@@ -426,6 +438,8 @@ for iteration in xrange(args.start_iteration, args.iterations):
         G_classification = -criterion(D_fake2, fake_label)  # generator wants to be labeled as real
     elif args.formulation == WASSERSTEIN:
         G_classification = -D_fake2.mean()  # make fake higher
+    elif args.formulation == SIGMOIDWASSERSTEIN:
+        D_classification = -F.sigmoid(D_fake2.mean() - D_real.mean().detach())  # make real higher than fake
 
     G_loss = G_classification
 
