@@ -3,6 +3,7 @@ import os
 import random
 import json
 import numpy as np
+from collections import OrderedDict
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -15,6 +16,13 @@ from tensorboardX import SummaryWriter
 
 from utils import find_latest_file
 
+
+# Enums
+NONSATURATING = 'nonsaturating'
+ZEROSUM = 'zerosum'
+WASSERSTEIN = 'wasserstein'
+NOPENALTY = 'nopenalty'
+REALFAKE = 'realfake'
 
 parser = argparse.ArgumentParser()
 
@@ -29,6 +37,9 @@ parser.add_argument('--workers', type=int, help='number of data loading workers'
 # DCGAN
 parser.add_argument('--iterations', type=int, default=100000, help='input batch size')
 parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
+parser.add_argument('--formulation', default=NONSATURATING, choices=[ZEROSUM, NONSATURATING, WASSERSTEIN], help='GAN formulation')
+parser.add_argument('--gp', default=1., type=float, help='magnitude of gradient penalty')
+parser.add_argument('--gp-type', default=NOPENALTY, choices=[NOPENALTY, REALFAKE], help='magnitude of gradient penalty')
 parser.add_argument('--imageSize', type=int, default=64, help='the height / width of the input image to network')
 parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
 parser.add_argument('--ngf', type=int, default=64, help='size of generator')
@@ -289,84 +300,123 @@ else:
     raise ArgumentError('Bad checkpoint. Delete logdir folder to start over.')
 
 
+def get_gradient_penalty(real, fake):
+    # compute optional gradient penalty
+    if args.gp_type == NOPENALTY:
+        pass
+    elif args.gp_type == REALFAKE:
+        # need torch.autograd.grad because create_graph breaks with backward
+        fake_gradients = torch.autograd.grad(
+            outputs=D_fake, inputs=fake.detach(),
+            grad_outputs=torch.ones_like(D_fake).to(device),
+            create_graph=True, only_inputs=True)[0]
+        real_gradients = torch.autograd.grad(
+            outputs=D_real, inputs=real.detach(),
+            grad_outputs=torch.ones_like(D_real).to(device),
+            create_graph=True, only_inputs=True)[0]
+
+        real_penalty = (real_gradients ** 2).sum() / float(len(real))
+        fake_penalty = (fake_gradients ** 2).sum() / float(len(fake))
+
+    return real_penalty, fake_penalty
+
+
+def track(name, value):
+    info.setdefault(name, OrderedDict())
+    info[name][iteration] = value
+
+    just_loaded = (iteration == args.start_iteration and args.checkpoint != '')
+    if iteration % args.log_every == 0 and not just_loaded:
+        logger.add_scalar(name, value, iteration)
+        print '{}: {:.4f}'.format(name, value)
+
+
 criterion = nn.BCELoss()
-
 fixed_noise = torch.randn(args.batchSize, nz, 1, 1, device=device)
-real_label = 1
-fake_label = 0
-
 info = {}
 for iteration in xrange(args.start_iteration, args.iterations):
 
-    # Sample some real samples
+    # Sample real
     data, __ = data_iter.next()
+    real = data.to(device)
+    batch_size = len(real)
+    real_label = torch.full((batch_size,), 1, device=device)
+    fake_label = torch.full((batch_size,), 0, device=device)
+
+    # Generate fake
+    noise = torch.randn(batch_size, nz, 1, 1, device=device)
+    fake = netG(noise)
 
     ############################
     # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
     ###########################
-    # train with real
+
+    # Classify
+    D_real = netD(real)
+    D_fake = netD(fake.detach())  # we don't want to backprop into netG
+
+    # Get classification loss
+    D_real_loss = criterion(D_real, real_label)
+    D_fake_loss = criterion(D_fake, fake_label)
+    D_classification = D_real_loss + D_fake_loss
+
+    # Get penalty
+    D_gradient_penalty = torch.zeros(())  #get_gradient_penalty(D_real, D_fake)
+
+    # Total loss
+    D_loss = D_classification + D_gradient_penalty
+
+    # Backprop
     netD.zero_grad()
-    real = data.to(device)
-    batch_size = real.size(0)
-    label = torch.full((batch_size,), real_label, device=device)
-
-    output = netD(real)
-    errD_real = criterion(output, label)
-    errD_real.backward()
-    D_x = output.mean().item()
-
-    # train with fake
-    noise = torch.randn(batch_size, nz, 1, 1, device=device)
-    fake = netG(noise)
-    label.fill_(fake_label)
-    output = netD(fake.detach())
-    errD_fake = criterion(output, label)
-    errD_fake.backward()
-    D_G_z1 = output.mean().item()
-    errD = errD_real + errD_fake
-
-    # Take actual step only once
+    D_loss.backward()
     optimizerD.step()
 
     ############################
     # (2) Update G network: maximize log(D(G(z)))
     ###########################
+
+    # Classify again (fake is not detached this time)
+    D_fake2 = netD(fake)
+
+    # Get classification (total) loss
+    G_classification = criterion(D_fake2, real_label)  # generator wants to be labeled as real
+    G_loss = G_classification
+
+    # Backprop through D and G
     netG.zero_grad()
-    label.fill_(real_label)  # fake labels are real for generator cost
-    output = netD(fake)
-    errG = criterion(output, label)
-    errG.backward()
-    D_G_z2 = output.mean().item()
+    G_loss.backward()
     optimizerG.step()
 
-    # Log training values
-    info.setdefault('lossD', {})
-    info.setdefault('lossG', {})
-    info['lossD'][iteration] = errD.item()
-    info['lossG'][iteration] = errG.item()
-
+    ##############################
+    # Debug and logging
+    ##############################
     if iteration % args.log_every == 0:
         print '\nIteration', iteration
-        print 'LossD: {:.4f}'.format(errD.item(), np.mean(info['lossD'].values()))
-        print 'LossG: {:.4f}'.format(errG.item(), np.mean(info['lossG'].values()))
-        print 'D(x): {:.4f}'.format(D_x)
-        print 'D(G(z)): {:.4f} / {:.4f}'.format(D_G_z1, D_G_z2)
-        logger.add_scalar('loss/D', errD.item(), iteration)
-        logger.add_scalar('loss/G', errG.item(), iteration)
+
+    # Log training values
+    track('loss/D_loss', D_loss.item())
+    track('loss/D_classification', D_classification.item())
+    track('loss/D_gradient_penalty', D_gradient_penalty.item())
+    track('loss/G_loss', G_loss.item())
+    track('stats/D_real', D_real.mean().item())
+    track('stats/D_fake', D_fake.mean().item())
+    track('stats/D_fake2', D_fake2.mean().item())
+
+    just_loaded = (iteration == args.start_iteration and args.checkpoint != '')
 
 
-    if iteration % args.sample_every == 0:
+    if iteration % args.sample_every == 0 and not just_loaded:
         vutils.save_image(real, os.path.join(sample_dir, 'real_{:09d}.png'.format(iteration)), normalize=True)
         fake = netG(fixed_noise)
         vutils.save_image(fake.detach(), os.path.join(sample_dir, 'fake_{:09d}.png'.format(iteration)), normalize=True)
 
-        gallery_real= vutils.make_grid(real.data, normalize=True, range=(0, 1))
-        gallery_fake = vutils.make_grid(fake.data, normalize=True, range=(0, 1))
+        gallery_real = vutils.make_grid(real.data, normalize=True, range=(-1, 1))
+        gallery_fake = vutils.make_grid(fake.data, normalize=True, range=(-1, 1))
         logger.add_image('real', gallery_real, iteration)
         logger.add_image('fake', gallery_fake, iteration)
         print 'Saving samples to tensorboard'
 
-    if iteration % args.checkpoint_every == 0 and not (args.checkpoint != '' and iteration == args.start_iteration):
+    if iteration % args.checkpoint_every == 0 and not just_loaded:
 
         checkpoint = {
             'netD': netD.state_dict(),
@@ -379,5 +429,3 @@ for iteration in xrange(args.start_iteration, args.iterations):
         checkpoint_path = os.path.join(check_dir, 'checkpoint_{}.pth'.format(iteration))
         print 'Saving checkpoint to', checkpoint_path
         torch.save(checkpoint, checkpoint_path)
-
-#torch.save(netD.state_dict(), '%s/netD_epoch_%d.pth' % (args.outf, epoch))
