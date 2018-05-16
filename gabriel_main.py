@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
+import torch.nn.functional as F
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
@@ -22,7 +23,8 @@ NONSATURATING = 'nonsaturating'
 ZEROSUM = 'zerosum'
 WASSERSTEIN = 'wasserstein'
 NOPENALTY = 'nopenalty'
-REALFAKE = 'realfake'
+PRE = 'pre'  # before sigmoid
+POST = 'post'  # after sigmoid
 
 parser = argparse.ArgumentParser()
 
@@ -39,7 +41,7 @@ parser.add_argument('--iterations', type=int, default=100000, help='input batch 
 parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
 parser.add_argument('--formulation', default=NONSATURATING, choices=[ZEROSUM, NONSATURATING, WASSERSTEIN], help='GAN formulation')
 parser.add_argument('--gp', default=10., type=float, help='magnitude of gradient penalty')
-parser.add_argument('--gp-type', default=NOPENALTY, choices=[NOPENALTY, REALFAKE], help='type of gradient penalty')
+parser.add_argument('--gp-type', default=NOPENALTY, choices=[NOPENALTY, PRE, POST], help='type of gradient penalty')
 parser.add_argument('--imageSize', type=int, default=64, help='the height / width of the input image to network')
 parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
 parser.add_argument('--ngf', type=int, default=64, help='size of generator')
@@ -222,7 +224,6 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*8) x 4 x 4
             nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
-            nn.Sigmoid()
         )
 
     def forward(self, input):
@@ -254,7 +255,6 @@ class DiscriminatorNoBatchnorm(Discriminator):
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*8) x 4 x 4
             nn.Conv2d(ndf * 8, 1, 4, 1, 0),
-            nn.Sigmoid()
         )
 
 
@@ -306,7 +306,29 @@ def get_gradient_penalty(real, fake, gp_type):
     # compute optional gradient penalty
     if gp_type == NOPENALTY:
         penalty = torch.zeros((), device=device)
-    elif gp_type == REALFAKE:
+
+    elif gp_type == POST:
+        real = real.detach().requires_grad_()
+        fake = fake.detach().requires_grad_()
+        D_real = netD(real)
+        D_fake = netD(fake)
+        sigmoid_real = F.sigmoid(D_real)
+        sigmoid_fake = F.sigmoid(D_fake)
+
+        fake_gradients = torch.autograd.grad(
+            outputs=sigmoid_fake, inputs=fake,
+            grad_outputs=torch.ones_like(sigmoid_fake).to(device),
+            create_graph=True, only_inputs=True)[0]
+        real_gradients = torch.autograd.grad(
+            outputs=sigmoid_real, inputs=real,
+            grad_outputs=torch.ones_like(sigmoid_real).to(device),
+            create_graph=True, only_inputs=True)[0]
+
+        real_penalty = (real_gradients ** 2).sum() / float(len(real))
+        fake_penalty = (fake_gradients ** 2).sum() / float(len(fake))
+        penalty = real_penalty + fake_penalty
+
+    elif gp_type == PRE:
         # Recompute - maybe this is not necessary?
         real = real.detach().requires_grad_()
         fake = fake.detach().requires_grad_()
@@ -341,7 +363,7 @@ def track(name, value):
         print '{}: {:.4f}'.format(name, value)
 
 
-criterion = nn.BCELoss()
+criterion = nn.BCEWithLogitsLoss()
 info = {}
 for iteration in xrange(args.start_iteration, args.iterations):
 
