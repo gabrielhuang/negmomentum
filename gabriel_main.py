@@ -302,25 +302,33 @@ else:
     raise ArgumentError('Bad checkpoint. Delete logdir folder to start over.')
 
 
-def get_gradient_penalty(real, fake):
+def get_gradient_penalty(real, fake, gp_type):
     # compute optional gradient penalty
-    if args.gp_type == NOPENALTY:
-        pass
-    elif args.gp_type == REALFAKE:
+    if gp_type == NOPENALTY:
+        penalty = torch.zeros((), device=device)
+    elif gp_type == REALFAKE:
+        # Recompute - maybe this is not necessary?
+        real = real.detach().requires_grad_()
+        fake = fake.detach().requires_grad_()
+        D_real = netD(real)
+        D_fake = netD(fake)
+
+        # maybe we could save those two computations; not sure ...
         # need torch.autograd.grad because create_graph breaks with backward
         fake_gradients = torch.autograd.grad(
-            outputs=D_fake, inputs=fake.detach(),
+            outputs=D_fake, inputs=fake,
             grad_outputs=torch.ones_like(D_fake).to(device),
             create_graph=True, only_inputs=True)[0]
         real_gradients = torch.autograd.grad(
-            outputs=D_real, inputs=real.detach(),
+            outputs=D_real, inputs=real,
             grad_outputs=torch.ones_like(D_real).to(device),
             create_graph=True, only_inputs=True)[0]
 
         real_penalty = (real_gradients ** 2).sum() / float(len(real))
         fake_penalty = (fake_gradients ** 2).sum() / float(len(fake))
+        penalty = real_penalty + fake_penalty
 
-    return real_penalty, fake_penalty
+    return penalty
 
 
 def track(name, value):
@@ -362,7 +370,7 @@ for iteration in xrange(args.start_iteration, args.iterations):
     D_classification = D_real_loss + D_fake_loss
 
     # Get penalty
-    D_gradient_penalty = torch.zeros(())  #get_gradient_penalty(D_real, D_fake)
+    D_gradient_penalty = args.gp * get_gradient_penalty(real, fake, args.gp_type)
 
     # Total loss
     D_loss = D_classification + D_gradient_penalty
