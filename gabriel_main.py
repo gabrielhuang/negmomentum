@@ -78,7 +78,7 @@ parser.add_argument('--start-iteration', default=0, type=int, help='start counti
 parser.add_argument('--inception', default=1, type=int, help='Evaluate inception score')
 parser.add_argument('--inception-every', default=10, type=int, help='inception score interval')
 parser.add_argument('--inception-samples', default=64, type=int, help='number of samples to compute inception score')
-parser.add_argument('--inception-backend', default=PYTORCH, 'backend for inception score')
+parser.add_argument('--inception-backend', default=PYTORCH, help='backend for inception score')
 
 # Actual parsing
 args = parser.parse_args()
@@ -86,13 +86,13 @@ print(args)
 
 
 if args.inception:
-    if args.backend == TENSORFLOW:
+    if args.inception_backend == TENSORFLOW:
         import tensorflow as tf
         # Initialize with right device
         tf_device = '/device:GPU:0' if args.cuda else '/device:cpu:0'
         with tf.device(tf_device):
             from inception_score import get_inception_score  # import only if needed
-    elif args.backend == PYTORCH:
+    elif args.inception_backend == PYTORCH:
         from inception_score_pytorch.inception_score import inception_score
 
 
@@ -506,7 +506,9 @@ for iteration in xrange(args.start_iteration, args.iterations):
                 inception_score, inception_std = get_inception_score(list(fake_numpy))
         elif args.inception_backend == PYTORCH:
             print 'Using PyTorch backend, Computing inception score for', args.inception_samples
-            inception_score, inception_std = inception_score(fake)
+            inception_score, inception_std = inception_score(fake, args.cuda,
+                                                             min(args.batchSize, args.inception_samples),
+                                                             resize=True)
         track('inception/score', inception_score)
         track('inception/std', inception_std)
 
