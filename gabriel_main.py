@@ -75,6 +75,7 @@ parser.add_argument('--log-every', default=10, type=int, help='print log interva
 parser.add_argument('--start-iteration', default=0, type=int, help='start counting iterations from that')
 parser.add_argument('--inception', default=1, type=int, help='Evaluate inception score')
 parser.add_argument('--inception-every', default=10, type=int, help='inception score interval')
+parser.add_argument('--inception-samples', default=64, type=int, help='number of samples to compute inception score')
 
 # Actual parsing
 args = parser.parse_args()
@@ -473,10 +474,11 @@ for iteration in xrange(args.start_iteration, args.iterations):
     just_loaded = (iteration == args.start_iteration and args.checkpoint != '')
 
     if args.inception and iteration % args.inception_every == 0 and not just_loaded:
+        print 'Computing inception score for', args.inception_samples
         # Evaluate inception score
         all_samples = []
         # Generate fake
-        noise = torch.randn(200, nz, 1, 1, device=device)
+        noise = torch.randn(args.inception_samples, nz, 1, 1, device=device)
         fake = netG(noise)
         # Untransform
         fake_numpy = fake.numpy()
