@@ -83,7 +83,11 @@ print(args)
 
 
 if args.inception:
-    from inception_score import get_inception_score  # import only if needed
+    import tensorflow as tf
+    # Initialize with right device
+    tf_device = '/device:GPU:0' if args.cuda else '/device:cpu:0'
+    with tf.device(tf_device):
+        from inception_score import get_inception_score  # import only if needed
 
 
 # Save code version
@@ -481,11 +485,12 @@ for iteration in xrange(args.start_iteration, args.iterations):
         noise = torch.randn(args.inception_samples, nz, 1, 1, device=device)
         fake = netG(noise)
         # Untransform
-        fake_numpy = fake.numpy()
+        fake_numpy = fake.detach_().cpu().numpy()
         fake_numpy = (0.5 * (fake_numpy + 1) * 255).astype(np.int32)
         fake_numpy = fake_numpy.transpose(0, 2, 3, 1)  # roll channels to last dimension
         # Compute
-        inception_score, inception_std = get_inception_score(list(fake_numpy))
+        with tf.device(tf_device):
+            inception_score, inception_std = get_inception_score(list(fake_numpy))
         track('inception/score', inception_score)
         track('inception/std', inception_std)
 
