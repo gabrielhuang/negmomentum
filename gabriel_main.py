@@ -224,7 +224,7 @@ class Generator(nn.Module):
             nn.ReLU(True),
             # state size. (ngf) x 32 x 32
             nn.ConvTranspose2d(    ngf,      nc, 4, 2, 1, bias=False),
-            nn.Hardtanh()
+            nn.Tanh()
             # state size. (nc) x 64 x 64
         )
 
@@ -512,6 +512,8 @@ for iteration in xrange(args.start_iteration, args.iterations):
             inception_score_real, inception_std_real = get_inception_score(real, args.cuda,
                                                              min(args.batchSize, args.inception_samples),
                                                              resize=True)
+            track('inception/real_score', inception_score_real)
+            track('inception/real_std', inception_std_real)
         track('inception/score', inception_score)
         track('inception/std', inception_std)
 
