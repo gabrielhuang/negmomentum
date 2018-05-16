@@ -76,7 +76,7 @@ parser.add_argument('--checkpoint-every', default=500, type=int, help='checkpoin
 parser.add_argument('--log-every', default=10, type=int, help='print log interval')
 parser.add_argument('--start-iteration', default=0, type=int, help='start counting iterations from that')
 parser.add_argument('--inception', default=1, type=int, help='Evaluate inception score')
-parser.add_argument('--inception-every', default=10, type=int, help='inception score interval')
+parser.add_argument('--inception-every', default=100, type=int, help='inception score interval')
 parser.add_argument('--inception-samples', default=64, type=int, help='number of samples to compute inception score')
 parser.add_argument('--inception-backend', default=PYTORCH, help='backend for inception score')
 
