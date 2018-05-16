@@ -20,7 +20,7 @@ from utils import find_latest_file
 
 # Enums
 NONSATURATING = 'nonsaturating'
-ZEROSUM = 'zerosum'
+JS = 'js'  # jensen-shannon
 WASSERSTEIN = 'wasserstein'
 NOPENALTY = 'nopenalty'
 PRE = 'pre'  # before sigmoid
@@ -36,17 +36,24 @@ parser.add_argument('--dataset', required=True, help='cifar10 | lsun | imagenet 
 parser.add_argument('--dataroot', required=True, help='path to dataset')
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
 
-# DCGAN
+# General Training
 parser.add_argument('--iterations', type=int, default=100000, help='input batch size')
 parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
-parser.add_argument('--formulation', default=NONSATURATING, choices=[ZEROSUM, NONSATURATING, WASSERSTEIN], help='GAN formulation')
+
+## Gan formulation
+parser.add_argument('--formulation', default=NONSATURATING, choices=[JS, NONSATURATING, WASSERSTEIN], help='GAN formulation')
+
+## Gradient penalty
 parser.add_argument('--gp', default=10., type=float, help='magnitude of gradient penalty')
 parser.add_argument('--gp-type', default=NOPENALTY, choices=[NOPENALTY, PRE, POST], help='type of gradient penalty')
+
+## Model
 parser.add_argument('--imageSize', type=int, default=64, help='the height / width of the input image to network')
 parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
 parser.add_argument('--ngf', type=int, default=64, help='size of generator')
 parser.add_argument('--ndf', type=int, default=64, help='size of discriminator')
-parser.add_argument('--niter', type=int, default=25, help='number of epochs to train for')
+
+## Training dynamics
 parser.add_argument('--lrG', type=float, default=0.0002, help='generator learning rate, default=0.0002')
 parser.add_argument('--lrD', type=float, default=0.0002, help='discriminator learning rate, default=0.0002')
 parser.add_argument('--beta1G', type=float, default=0.5, help='beta1 for adam. default=0.5')
@@ -387,9 +394,12 @@ for iteration in xrange(args.start_iteration, args.iterations):
     D_fake = netD(fake.detach())  # we don't want to backprop into netG
 
     # Get classification loss
-    D_real_loss = criterion(D_real, real_label)
-    D_fake_loss = criterion(D_fake, fake_label)
-    D_classification = D_real_loss + D_fake_loss
+    if args.formulation in [NONSATURATING, JS]:
+        D_real_loss = criterion(D_real, real_label)
+        D_fake_loss = criterion(D_fake, fake_label)
+        D_classification = D_real_loss + D_fake_loss
+    elif args.formulation == WASSERSTEIN:
+        D_classification = D_fake.mean() - D_real.mean()  # make real higher than fake
 
     # Get penalty
     D_gradient_penalty = args.gp * get_gradient_penalty(real, fake, args.gp_type)
@@ -410,7 +420,13 @@ for iteration in xrange(args.start_iteration, args.iterations):
     D_fake2 = netD(fake)
 
     # Get classification (total) loss
-    G_classification = criterion(D_fake2, real_label)  # generator wants to be labeled as real
+    if args.formulation == NONSATURATING:
+        G_classification = criterion(D_fake2, real_label)  # generator wants to be labeled as real
+    elif args.formulation == JS:
+        G_classification = -criterion(D_fake2, fake_label)  # generator wants to be labeled as real
+    elif args.formulation == WASSERSTEIN:
+        G_classification = -D_fake2.mean()  # make fake higher
+
     G_loss = G_classification
 
     # Backprop through D and G
