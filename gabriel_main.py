@@ -93,7 +93,7 @@ if args.inception:
         with tf.device(tf_device):
             from inception_score import get_inception_score  # import only if needed
     elif args.inception_backend == PYTORCH:
-        from inception_score_pytorch.inception_score import inception_score
+        from inception_score_pytorch.inception_score import inception_score as get_inception_score
 
 
 # Save code version
@@ -506,7 +506,7 @@ for iteration in xrange(args.start_iteration, args.iterations):
                 inception_score, inception_std = get_inception_score(list(fake_numpy))
         elif args.inception_backend == PYTORCH:
             print 'Using PyTorch backend, Computing inception score for', args.inception_samples
-            inception_score, inception_std = inception_score(fake, args.cuda,
+            inception_score, inception_std = get_inception_score(fake, args.cuda,
                                                              min(args.batchSize, args.inception_samples),
                                                              resize=True)
         track('inception/score', inception_score)
