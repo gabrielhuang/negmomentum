@@ -66,8 +66,8 @@ parser.add_argument('--checkpoint', default='', help='start from another checkpo
 parser.add_argument('--ngpu', type=int, default=1, help='number of GPUs to use')
 parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--sample-every', default=100, type=int, help='save image interval')
-parser.add_argument('--checkpoint-every', default=100, type=int, help='checkpoint')
-parser.add_argument('--log-every', default=1, type=int, help='print log interval')
+parser.add_argument('--checkpoint-every', default=500, type=int, help='checkpoint')
+parser.add_argument('--log-every', default=10, type=int, help='print log interval')
 parser.add_argument('--start-iteration', default=0, type=int, help='start counting iterations from that')
 
 
