@@ -64,7 +64,7 @@ parser.add_argument('--beta1G', type=float, default=0.5, help='beta1 for adam. d
 parser.add_argument('--beta1D', type=float, default=0.5, help='beta1 for adam. default=0.5')
 parser.add_argument('--batchnormD', type=int, default=0, help='use batchnorm for discriminator')
 
-# General
+# General Logistics
 parser.add_argument('--cuda', type=int, default=1, help='enables cuda')
 parser.add_argument('--checkpoint', default='', help='start from another checkpoint (use logdir normally)')
 parser.add_argument('--ngpu', type=int, default=1, help='number of GPUs to use')
@@ -73,10 +73,17 @@ parser.add_argument('--sample-every', default=100, type=int, help='save image in
 parser.add_argument('--checkpoint-every', default=500, type=int, help='checkpoint')
 parser.add_argument('--log-every', default=10, type=int, help='print log interval')
 parser.add_argument('--start-iteration', default=0, type=int, help='start counting iterations from that')
+parser.add_argument('--inception', default=1, type=int, help='Evaluate inception score')
+parser.add_argument('--inception-every', default=10, type=int, help='inception score interval')
 
-
+# Actual parsing
 args = parser.parse_args()
 print(args)
+
+
+if args.inception:
+    from inception_score import get_inception_score  # import only if needed
+
 
 # Save code version
 try:
@@ -206,7 +213,7 @@ class Generator(nn.Module):
             nn.ReLU(True),
             # state size. (ngf) x 32 x 32
             nn.ConvTranspose2d(    ngf,      nc, 4, 2, 1, bias=False),
-            nn.HardTanh()
+            nn.Hardtanh()
             # state size. (nc) x 64 x 64
         )
 
@@ -413,7 +420,7 @@ for iteration in xrange(args.start_iteration, args.iterations):
     elif args.formulation == SIGMOIDWASSERSTEIN:
         D_classification = F.sigmoid(D_fake.mean() - D_real.mean())  # make real higher than fake
 
-    # Get penalty
+    # Get penalty (will redo forward and backward passes + create_graph)
     D_gradient_penalty = args.gp * get_gradient_penalty(real, fake, args.gp_type)
 
     # Total loss
@@ -464,6 +471,21 @@ for iteration in xrange(args.start_iteration, args.iterations):
     track('stats/D_fake2', D_fake2.mean().item())
 
     just_loaded = (iteration == args.start_iteration and args.checkpoint != '')
+
+    if args.inception and iteration % args.inception_every == 0 and not just_loaded:
+        # Evaluate inception score
+        all_samples = []
+        # Generate fake
+        noise = torch.randn(200, nz, 1, 1, device=device)
+        fake = netG(noise)
+        # Untransform
+        fake_numpy = fake.numpy()
+        fake_numpy = (0.5 * (fake_numpy + 1) * 255).astype(np.int32)
+        fake_numpy = fake_numpy.transpose(0, 2, 3, 1)  # roll channels to last dimension
+        # Compute
+        inception_score, inception_std = get_inception_score(list(fake_numpy))
+        track('inception/score', inception_score)
+        track('inception/std', inception_std)
 
 
     if iteration % args.sample_every == 0 and not just_loaded:
