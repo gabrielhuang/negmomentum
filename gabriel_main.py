@@ -28,6 +28,8 @@ SIGMOIDWASSERSTEIN = 'sigmoidwasserstein'
 NOPENALTY = 'nopenalty'
 PRE = 'pre'  # before sigmoid
 POST = 'post'  # after sigmoid
+PYTORCH = 'pytorch'
+TENSORFLOW = 'tensorflow'
 
 parser = argparse.ArgumentParser()
 
@@ -76,6 +78,7 @@ parser.add_argument('--start-iteration', default=0, type=int, help='start counti
 parser.add_argument('--inception', default=1, type=int, help='Evaluate inception score')
 parser.add_argument('--inception-every', default=10, type=int, help='inception score interval')
 parser.add_argument('--inception-samples', default=64, type=int, help='number of samples to compute inception score')
+parser.add_argument('--inception-backend', default=PYTORCH, 'backend for inception score')
 
 # Actual parsing
 args = parser.parse_args()
@@ -83,11 +86,14 @@ print(args)
 
 
 if args.inception:
-    import tensorflow as tf
-    # Initialize with right device
-    tf_device = '/device:GPU:0' if args.cuda else '/device:cpu:0'
-    with tf.device(tf_device):
-        from inception_score import get_inception_score  # import only if needed
+    if args.backend == TENSORFLOW:
+        import tensorflow as tf
+        # Initialize with right device
+        tf_device = '/device:GPU:0' if args.cuda else '/device:cpu:0'
+        with tf.device(tf_device):
+            from inception_score import get_inception_score  # import only if needed
+    elif args.backend == PYTORCH:
+        from inception_score_pytorch.inception_score import inception_score
 
 
 # Save code version
@@ -478,19 +484,29 @@ for iteration in xrange(args.start_iteration, args.iterations):
     just_loaded = (iteration == args.start_iteration and args.checkpoint != '')
 
     if args.inception and iteration % args.inception_every == 0 and not just_loaded:
-        print 'Computing inception score for', args.inception_samples
-        # Evaluate inception score
-        all_samples = []
         # Generate fake
         noise = torch.randn(args.inception_samples, nz, 1, 1, device=device)
-        fake = netG(noise)
-        # Untransform
-        fake_numpy = fake.detach_().cpu().numpy()
-        fake_numpy = (0.5 * (fake_numpy + 1) * 255).astype(np.int32)
-        fake_numpy = fake_numpy.transpose(0, 2, 3, 1)  # roll channels to last dimension
-        # Compute
-        with tf.device(tf_device):
-            inception_score, inception_std = get_inception_score(list(fake_numpy))
+        fake = netG(noise).detach_()
+
+        if args.inception_backend == TENSORFLOW:
+            print 'Using Tensorflow backend, Computing inception score for', args.inception_samples
+            # Untransform
+            fake_numpy = fake.cpu().numpy()
+            fake_numpy = (0.5 * (fake_numpy + 1) * 255).astype(np.int32)
+            fake_numpy = fake_numpy.transpose(0, 2, 3, 1)  # roll channels to last dimension
+            # Compute
+            with tf.device(tf_device):
+                inception_score, inception_std = get_inception_score(list(fake_numpy))
+                # Evaluate inception score
+                # Untransform
+                fake_numpy = fake.numpy()
+                fake_numpy = (0.5 * (fake_numpy + 1) * 255).astype(np.int32)
+                fake_numpy = fake_numpy.transpose(0, 2, 3, 1)  # roll channels to last dimension
+                # Compute
+                inception_score, inception_std = get_inception_score(list(fake_numpy))
+        elif args.inception_backend == PYTORCH:
+            print 'Using PyTorch backend, Computing inception score for', args.inception_samples
+            inception_score, inception_std = inception_score(fake)
         track('inception/score', inception_score)
         track('inception/std', inception_std)
 
