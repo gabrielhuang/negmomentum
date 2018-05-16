@@ -285,6 +285,7 @@ if os.path.isdir(args.checkpoint):
 # Start fresh
 if args.checkpoint == '':
     print 'No checkpoint. Starting fresh'
+    fixed_noise = torch.randn(args.batchSize, nz, 1, 1, device=device)
 # Load file
 elif os.path.isfile(args.checkpoint):
     print 'Attempting to load checkpoint', args.checkpoint
@@ -294,6 +295,7 @@ elif os.path.isfile(args.checkpoint):
     optimizerD.load_state_dict(checkpoint['optimizerD'])
     optimizerG.load_state_dict(checkpoint['optimizerG'])
     args.start_iteration = checkpoint['iteration']
+    fixed_noise = checkpoint['fixed_noise']
     info = checkpoint['info']
     print '-> Success.'
 else:
@@ -332,7 +334,6 @@ def track(name, value):
 
 
 criterion = nn.BCELoss()
-fixed_noise = torch.randn(args.batchSize, nz, 1, 1, device=device)
 info = {}
 for iteration in xrange(args.start_iteration, args.iterations):
 
@@ -424,7 +425,8 @@ for iteration in xrange(args.start_iteration, args.iterations):
             'optimizerD': optimizerD.state_dict(),
             'optimizerG': optimizerG.state_dict(),
             'iteration': iteration,
-            'info': info
+            'info': info,
+            'fixed_noise': fixed_noise
         }
         checkpoint_path = os.path.join(check_dir, 'checkpoint_{}.pth'.format(iteration))
         print 'Saving checkpoint to', checkpoint_path
