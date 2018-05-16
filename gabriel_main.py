@@ -509,6 +509,9 @@ for iteration in xrange(args.start_iteration, args.iterations):
             inception_score, inception_std = get_inception_score(fake, args.cuda,
                                                              min(args.batchSize, args.inception_samples),
                                                              resize=True)
+            inception_score_real, inception_std_real = inception_score(real, args.cuda,
+                                                             min(args.batchSize, args.inception_samples),
+                                                             resize=True)
         track('inception/score', inception_score)
         track('inception/std', inception_std)
 
