@@ -439,7 +439,7 @@ for iteration in xrange(args.start_iteration, args.iterations):
     elif args.formulation == WASSERSTEIN:
         G_classification = -D_fake2.mean()  # make fake higher
     elif args.formulation == SIGMOIDWASSERSTEIN:
-        D_classification = -F.sigmoid(D_fake2.mean() - D_real.mean().detach())  # make real higher than fake
+        G_classification = -F.sigmoid(D_fake2.mean() - D_real.mean().detach())  # make real higher than fake
 
     G_loss = G_classification
 
