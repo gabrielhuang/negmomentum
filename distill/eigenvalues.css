@@ -1,0 +1,61 @@
+svg {
+  background-color: #ddd;
+}
+.axis text {
+  font: 10px sans-serif;
+}
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.unitCircle {
+  fill: rgba(0, 255, 0, 0.1);
+  stroke: black;
+  stroke-width: 2;
+  }
+
+.convergenceCircle {
+  fill: none;
+  stroke: red;
+  stroke-width: 2;
+  stroke-dasharray: 10 5;
+}
+
+.shiftedConvergenceCircle {
+  fill: none;
+  stroke: blue;
+  stroke-width: 2;
+  stroke-dasharray: 10 5;
+}
+
+.eigenValue {
+  fill: red;
+  stroke: white;
+  stroke-width: 2;
+}
+
+.shiftedEigenValue {
+  fill: blue;
+  stroke: white;
+  stroke-width: 2;
+}
+
+.eigenValueTrace {
+  fill: rgba(255, 50, 50, 0.2);
+}
+
+.shiftedEigenValueTrace {
+  fill: rgba(0, 50, 255, 0.2);
+}
+
+.chart .eigenDirection {
+  stroke: blue;
+  stroke-width: 2;
+}
+
+.box {
+  font-family: "Lucida Console", Monaco, monospace;
+}

@@ -1,0 +1,44 @@
+<!doctype html>
+
+<head>
+  <link rel="stylesheet" type="text/css" href="eigenvalues.css">
+</head>
+
+<body>
+
+<svg class="chart">
+</svg>
+
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/4.4.2/math.min.js"></script>
+<script src="./eigenvalues.js"></script>
+
+<script>
+
+var eigs = [
+  math.complex('0.5-0.8660254i'),
+  math.complex('0.5+0.8660254i'),
+  math.complex('0.5-0.8660254i'),
+  math.complex('0.5+0.8660254i')
+];
+
+var blob = initialize_chart('chart', 600, 2);
+replot(eigs, 0., 0., blob);
+
+// set mousemove callback
+blob.chart.on("mousemove", function() {
+  var coords = d3.mouse(this);
+  x = blob.xRevScale(coords[0]);
+  y = blob.yRevScale(coords[1]);
+
+
+  var lr = y;
+  var beta = x;
+  console.log('Lr',lr);
+  console.log('Beta',beta);
+  replot(eigs, lr, beta, blob);
+});
+
+</script>
+
+</body>
