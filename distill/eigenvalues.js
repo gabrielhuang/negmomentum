@@ -9,6 +9,19 @@ function shift_eig(eig, lr, beta){
   return [new_eig1, new_eig2];
 }
 
+// Create element with class '' if does not exist,
+// else return existing element
+function create_unique(root, type, class_name, other_classes) {
+  other_classes = other_classes || [];
+  var unique = root.selectAll('.' + class_name).data([0]);
+  unique.enter().append(type).classed(class_name, true);
+  var unique = root.selectAll('.' + class_name);
+  for(var i=0; i<other_classes.length;i++) {
+    unique.classed(other_classes[i], true);
+  }
+  return unique;
+}
+
 function initialize_chart(class_name, pixels, units) {
   var b = {}; // chart-related handlers and objects
 
@@ -45,62 +58,27 @@ function replot(eigs, lr, beta, blob) {
 
   // Set up axes
   var xAxis = d3.axisBottom(b.xScale);
-  var xAxisGroup = b.chart.selectAll('.axis_x')
-  .data([0]);
-  xAxisGroup
-  .enter()
-  .append('g')
-  .attr('class', 'axis_x')
-  .attr('transform', 'translate(0, '+ height/2 + ')')
-  .call(xAxis);
-  xAxisGroup
+  var xAxisGroup = create_unique(b.chart, 'g', 'axis_x')
   .attr('transform', 'translate(0, '+ height/2 + ')')
   .call(xAxis);
 
   var yAxis = d3.axisLeft(b.yScale);
-  var yAxisGroup = b.chart.selectAll('.axis_y')
-  .data([0]);
-  yAxisGroup
-  .enter()
-  .append('g')
-  .attr('class', 'axis_y')
-  .attr('transform', 'translate(' + width/2 + ',0)')
-  .call(yAxis);
-  yAxisGroup
+  var yAxisGroup = create_unique(b.chart, 'g', 'axis_y')
   .attr('transform', 'translate(' + width/2 + ',0)')
   .call(yAxis);
 
   // Print unit circle
-  var unitCircle = b.chart.selectAll('.unitCircle')
-  .data([0]);
-  unitCircle.enter().append('circle')
-  .attr('class', 'unitCircle')
-  .attr("cx", height/2)
-  .attr("cy", width/2)
-  .attr("r", b.unit);
-  unitCircle
+  var unitCircle = create_unique(b.chart, 'circle', 'unitCircle')
   .attr("cx", height/2)
   .attr("cy", width/2)
   .attr("r", b.unit);
 
-  var lr_box = b.chart.selectAll('.lr').data([0]);
-  lr_box.enter().append('text')
-  .attr('class', 'lr box')
-  .attr("x", 20)
-  .attr("y", 20)
-  .text('lr=0.');
-  lr_box
+  var lr_box = create_unique(b.chart, 'text', 'lr', ['box'])
   .attr("x", 20)
   .attr("y", 20)
   .text('lr=0.');
 
-  var beta_box = b.chart.selectAll('.beta').data([0]);
-  beta_box.enter().append('text')
-  .attr('class', 'beta box')
-  .attr("x", 20)
-  .attr("y", 40)
-  .text('beta=0.');
-  beta_box
+  var beta_box = create_unique(b.chart, 'text', 'beta', ['box'])
   .attr("x", 20)
   .attr("y", 40)
   .text('beta=0.');
@@ -114,7 +92,7 @@ function replot(eigs, lr, beta, blob) {
 
   // text to show value of beta and lr
   lr_box.text('lr='+lr.toFixed(2));
-  beta_box.text('beta='+beta.toFixed(2))
+  beta_box.text('beta='+beta.toFixed(2));
 
   //////// begin trace //////////
   var eigs_traces = [];
@@ -319,4 +297,102 @@ function replot(eigs, lr, beta, blob) {
   .remove();
 
 
+}
+
+
+
+function initialize_touchpad(class_name, pixels,
+    min_lr, max_lr, min_beta, max_beta) {
+  var tp = {}; // chart-related handlers and objects
+
+  tp.pixels = pixels;
+  tp.min_lr = min_lr === undefined? -2 : min_lr;
+  tp.max_lr = max_lr === undefined? 2. : max_lr;
+  tp.min_beta = min_beta === undefined? -2.:min_beta;
+  tp.max_beta = max_beta === undefined? 2.:max_beta;
+  tp.bar_thick = 10;
+
+  tp.yScale = d3.scaleLinear()
+                           .domain([tp.max_lr,tp.min_lr])
+                           .range([0,tp.pixels]);
+  tp.xScale = d3.scaleLinear()
+                           .domain([tp.min_beta, tp.max_beta])
+                           .range([0,tp.pixels]);
+  tp.yRevScale = d3.scaleLinear()
+                          .domain([0,tp.pixels])
+                          .range([tp.max_lr,tp.min_lr]);
+  tp.xRevScale = d3.scaleLinear()
+                          .domain([0,tp.pixels])
+                          .range([tp.min_beta, tp.max_beta]);
+
+  tp.class_name = class_name;
+  tp.touchpad = d3.select('.' + tp.class_name)
+  .attr('width', tp.pixels)
+  .attr('height', tp.pixels);
+
+  return tp;
+}
+
+
+function refresh_touchpad(tp, lr, beta) {
+  //console.log('Replotting', lr, beta);
+
+  var b = blob;
+
+  var lr_box = create_unique(tp.touchpad, 'text', 'lr', ['box'])
+  .attr("x", 20)
+  .attr("y", tp.pixels/2)
+  .text('lr='+lr.toFixed(2));
+
+  var beta_box = create_unique(tp.touchpad, 'text', 'beta', ['box'])
+  .attr("x", tp.pixels/2)
+  .attr("y", 40)
+  .text('beta='+beta.toFixed(2));
+
+  /////// bar for LR
+  var lr_bar_origin = tp.yScale(0);
+  var lr_bar_length = lr_bar_origin - Math.floor(tp.yScale(lr));
+  var lr_bar_positive_length = Math.max(0, lr_bar_length);
+  var lr_bar_negative_length = Math.max(0, -lr_bar_length);
+
+  console.log('lr_bar_length', lr_bar_length);
+  console.log('lr', lr);
+
+  var lr_bar_positive = create_unique(tp.touchpad, 'rect', 'lr_bar_positive', ['bar_positive'])
+  .attr("x", 0)
+  .attr("y", lr_bar_origin-Math.floor(lr_bar_positive_length))
+  .attr('width', tp.bar_thick)
+  .attr('height', Math.floor(lr_bar_positive_length))
+  .style('fill', 'green');
+
+  var lr_bar_negative = create_unique(tp.touchpad, 'rect', 'lr_bar_negative', ['bar_negative'])
+  .attr("x", 0)
+  .attr("y", lr_bar_origin)
+  .attr('width', tp.bar_thick)
+  .attr('height', Math.floor(lr_bar_negative_length))
+  .style('fill', 'red');
+
+
+  /////// bar for Beta
+  var beta_bar_origin = tp.xScale(0);
+  var beta_bar_length = Math.floor(tp.xScale(beta)) - beta_bar_origin;
+  var beta_bar_positive_length = Math.max(0, beta_bar_length);
+  var beta_bar_negative_length = Math.max(0, -beta_bar_length);
+
+  console.log('beta_bar_length', beta_bar_length);
+  console.log('beta', beta);
+
+  var beta_bar_positive = create_unique(tp.touchpad, 'rect', 'beta_bar_positive', ['bar_positive'])
+  .attr("x", beta_bar_origin)
+  .attr("y", 0)
+  .attr('width', beta_bar_positive_length)
+  .attr('height', tp.bar_thick)
+  .style('fill', 'green');
+
+  var beta_bar_negative = create_unique(tp.touchpad, 'rect', 'beta_bar_negative', ['bar_negative'])
+  .attr("x", beta_bar_origin - beta_bar_negative_length)
+  .attr("y", 0)
+  .attr('width', beta_bar_negative_length)
+  .attr('height', tp.bar_thick)
+  .style('fill', 'red');
 }

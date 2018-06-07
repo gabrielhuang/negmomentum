@@ -1,6 +1,19 @@
 svg {
   background-color: #ddd;
 }
+
+.touchpad {
+  background-color: #ffc;
+}
+
+.bar_positive {
+  background-color: green;
+}
+
+.bar_negative {
+  background-color: red;
+}
+
 .axis text {
   font: 10px sans-serif;
 }

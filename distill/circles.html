@@ -9,6 +9,11 @@
 <svg class="chart">
 </svg>
 
+<svg class="touchpad">
+</svg>
+
+
+
 <script src="https://d3js.org/d3.v5.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/4.4.2/math.min.js"></script>
 <script src="./eigenvalues.js"></script>
@@ -22,6 +27,8 @@ var eigs = [
   math.complex('0.5+0.8660254i')
 ];
 
+var tp = initialize_touchpad('touchpad', 300, 0, 2);
+
 var blob = initialize_chart('chart', 600, 2);
 replot(eigs, 0., 0., blob);
 
@@ -31,13 +38,31 @@ blob.chart.on("mousemove", function() {
   x = blob.xRevScale(coords[0]);
   y = blob.yRevScale(coords[1]);
 
-
   var lr = y;
   var beta = x;
   console.log('Lr',lr);
   console.log('Beta',beta);
   replot(eigs, lr, beta, blob);
 });
+
+
+
+tp.touchpad.on("mousemove", function() {
+  var coords = d3.mouse(this);
+  x = tp.xRevScale(coords[0]);
+  y = tp.yRevScale(coords[1]);
+
+  var lr = y;
+  var beta = x;
+  console.log('Lr',lr);
+  console.log('Beta',beta);
+  replot(eigs, lr, beta, blob);
+  refresh_touchpad(tp, lr, beta);
+});
+
+refresh_touchpad(tp, 0., 0.);
+
+
 
 </script>
 
