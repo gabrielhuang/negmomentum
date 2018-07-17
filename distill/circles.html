@@ -6,17 +6,56 @@
 
 <body>
 
+
+
+
+
+
+<script src="js/d3.v5.min.js"></script>
+<script src="js/math.min.js"></script>
+<script src="./eigenvalues.js"></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/latest.js?config=TeX-MML-AM_CHTML' async></script>
+
+<ul>
+
+<li>
+SGD and SGD with Momentum correspond to iterating the following fixed point operator:<br>
+$$x_{t} \longleftarrow F(x_{t}) = x_{t-1} - lr * grad(x_{t-1}) + beta * (x_{t-1} - x_{t-2})$$
+</li>
+
+<li>
+Eigenvalues of \(\nabla F(x^*)\) are represented in complex plane.
+<br>
+<span style="color:red">Red points: SGD Eigenvalues</span>
+<br>
+<span style="color:blue">Blue points: SGD+Momentum Eigenvalues</span>
+</li>
+
+<li>
+Need eigenvalues smaller than 1 for convergence.
+<br>
+<span style="color:red">Red circle: SGD convergence rate</span>
+<br>
+<span style="color:blue">Blue circle: SGD+Momentum convergence rate</span>
+</li>
+
+<li>
+  It appears the optimal convergence rate is obtained for <b>negative</b> value of momentum.
+</li>
+
+<li>
+Negative momentum SHIFTS the eigenvalues to the LEFT, into the convergence circle.
+</li>
+</ul>
+
+<h2><b>Can you tune the LR and BETA to minimize the blue circle?</b>
+</h2>
+
 <svg class="chart">
 </svg>
 
 <svg class="touchpad">
 </svg>
-
-
-
-<script src="https://d3js.org/d3.v5.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/4.4.2/math.min.js"></script>
-<script src="./eigenvalues.js"></script>
 
 <script>
 
@@ -28,6 +67,11 @@ var eigs = [
 ];
 
 var tp = initialize_touchpad('touchpad', 300, 0, 2);
+var lr_min = 0,
+  lr_max = 2.,
+  beta_min = -2.,
+  beta_max = 2;
+var shifted_rates = sweep(eigs, lr_min, lr_max, beta_min, beta_max);
 
 var blob = initialize_chart('chart', 600, 2);
 replot(eigs, 0., 0., blob);
@@ -45,8 +89,6 @@ blob.chart.on("mousemove", function() {
   replot(eigs, lr, beta, blob);
 });
 
-
-
 tp.touchpad.on("mousemove", function() {
   var coords = d3.mouse(this);
   x = tp.xRevScale(coords[0]);
@@ -60,7 +102,7 @@ tp.touchpad.on("mousemove", function() {
   refresh_touchpad(tp, lr, beta);
 });
 
-refresh_touchpad(tp, 0., 0.);
+refresh_touchpad(tp, 0., 0., shifted_rates);
 
 
 

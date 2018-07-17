@@ -1,0 +1,119 @@
+<!doctype html>
+<meta charset="utf-8">
+<script src="https://distill.pub/template.v1.js"></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+$$
+\newcommand\bm{\mathbf}
+\newcommand\LL{\mathcal L}
+\newcommand\argmin{\arg\!\min}
+$$
+
+
+<script type="text/front-matter">
+  title: "Article Title"
+  description: "Description of the post"
+  authors:
+  - Gabriel Huang: http://colah.github.io
+  affiliations:
+  - MILA, University of Montreal: https://mila.quebec/
+</script>
+
+<dt-article>
+  <h1>Negative Momentum</h1>
+  <h2>Using negative momentum can help adversarial games converge.</h2>
+  <dt-byline></dt-byline>
+
+  <p>We define the notions of adversarial and cooperative games, and introduce a continuous family of games with increasing levels of competition. We argue that two-player games, such as the training of Generative Adversarial Networks (GANs) are hard to make converge because they are too adversarial. Recently, a line of work has proposed to regularize the discriminator in order to improve the learning signal. Rather, we follow another approach and show that using <b>negative values of momentum</b> can make some adversarial games <b>converge better</b> by improving the conditioning of the transition operator.
+
+
+
+
+  <h2>GANs as two-player games.</h2>
+  <p>
+    The training of Generative Adversarial Networks (GANs) can be formulated as a two-player game involving a Discriminator, which attempts to classify real samples from generated samples, and a Generator, which tries to fool the discriminator to classify generated samples as real samples.
+    $$
+      \label{eq:two_player_games}
+      \bm{\theta}^* \in \argmin_{\bm{\theta} \in \bm{\theta}}\LL^{(\bm{\theta})}(\bm{\theta},\bm{\bm{\phi}}^*)
+      \quad \text{and} \quad
+      \bm{\bm{\phi}}^* \in \argmin_{\bm{\phi} \in \bm{\phi}} \LL^{(\bm{\phi})}(\bm{\theta}^*,\bm{\phi}) \,.
+    $$
+  </p>
+
+
+  <p>
+    Given such a game setup, a Nash Equilibrium is a state \( (\bm{\phi}^*, \bm{\theta}^*) \) in which neither the discriminator nor the generator can improve utility by a small change in their parameters. In order to analyze the dynamics of reaching a Nash Equilibrium, we look at the <i>gradient vector field</i> and its associated Jacobian,
+    $$
+    \bm{v}(\bm{\phi}, \bm{\theta}) :=
+    \begin{bmatrix}
+        \nabla_{\bm{\phi}}  \LL^{(\bm{\phi})}(\bm{\phi}, \bm{\theta})\\
+        \nabla_{\bm{\theta}}  \LL^{(\bm{\theta})}(\bm{\phi}, \bm{\theta})
+    \end{bmatrix},
+    \qquad
+    \nabla \bm{v}(\bm{\phi}, \bm{\theta}) :=
+    \begin{bmatrix}
+        \nabla^2_{\bm{\phi}}  \LL^{(\bm{\phi})}(\bm{\phi}, \bm{\theta}) & \nabla_{\bm{\phi}} \nabla_{\bm{\theta}} \LL^{(\bm{\phi})}(\bm{\phi}, \bm{\theta})\\
+        \nabla_{\bm{\phi}} \nabla_{\bm{\theta}}  \LL^{(\bm{\theta})}(\bm{\phi}, \bm{\theta})^T & \nabla^2_{\bm{\theta}}  \LL^{(\bm{\theta})}(\bm{\phi}, \bm{\theta})
+    \end{bmatrix}
+    $$
+  </p>
+
+  <h2>Fixed point dynamics.</h2>
+  <p>
+    Typically, GANs are trained by alternatively taking a gradient step on the generator parameter \( \theta \) and discriminator parameter \( \phi )\).
+
+    To analyze the effect of the presence of complex eigenvalues, we consider the simpler dynamics of Simultaneous Gradient Method, which consists in simultaneously taking a gradient step on \( \theta \) and \( \phi \)
+
+    Typically,
+    Simultaneous Gradient Method is defined as repeated application of the following operator on \( (\bm{\phi}, \bm{\theta}) \):
+    $$
+    \label{eq:update}
+    F_{\eta}(\bm{\phi}, \bm{\theta}) = \begin{bmatrix}
+    \bm{\phi} & \bm{\theta}
+    \end{bmatrix}^\top- \eta \ \bm{v}(\bm{\phi}, \bm{\theta})
+    $$
+  </p>
+
+  <h2>Eigenvalues of transition operator</h2>
+
+  <h2>Shifting the eigenvalues</h2>
+
+  <h2>Negative momentum and adversity of game.</h2>
+
+
+  <h2>GANs as two-player games.</h2>
+  <p>
+    The training of Generative Adversarial Networks (GANs) can be formulated as a two-player game involving a Discriminator, which attempts to classify real samples from generated samples, and a Generator, which tries to fool the discriminator to classify generated samples as real samples. Training finishes when Generator and Discriminator reach a Nash Equilibrium, at which point neither can locally imoprove its loss by slightly changing its parameters.</p>
+  <p>
+  The training dynamics of GANs are known to be unstable,
+  which makes them hard to train.
+  We argue that GANs are hard to train because the two-player game is too adversarial.
+  Indeed, if
+
+  A number of regularization methods have been recently proposed in order to stabilize GANs. We show that the
+  </p>
+
+  <h2>Is there a physical interpretation?</h2>
+  <p>Physical Interpretation of momentum?
+- physical intuition
+- SGD as limit
+- negative momentum has no physical Interpretation!
+  </p>
+
+
+
+  <p>We can also cite <dt-cite key="gregor2015draw"></dt-cite> external publications.</p>
+</dt-article>
+
+<dt-appendix>
+</dt-appendix>
+
+<script type="text/bibliography">
+  @article{gregor2015draw,
+    title={DRAW: A recurrent neural network for image generation},
+    author={Gregor, Karol and Danihelka, Ivo and Graves, Alex and Rezende, Danilo Jimenez and Wierstra, Daan},
+    journal={arXivreprint arXiv:1502.04623},
+    year={2015},
+    url={https://arxiv.org/pdf/1502.04623.pdf}
+  }
+</script>

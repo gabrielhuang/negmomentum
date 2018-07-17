@@ -175,7 +175,7 @@ function replot(eigs, lr, beta, blob) {
 
     // Get convergence circles
     var abs_eig = math.abs(transition_eig);
-    var abs_shifted_eig = math.max(math.abs(shifted_eigs[0]), math.abs(shifted_eigs[1]));
+    var abs_shifted_eig = math.max(math.abs(new_eigs[0]), math.abs(new_eigs[1]));
     radius_eigs = math.max(radius_eigs, abs_eig);
     radius_shifted_eigs = math.max(radius_shifted_eigs, abs_shifted_eig);
   }
@@ -334,10 +334,64 @@ function initialize_touchpad(class_name, pixels,
 }
 
 
-function refresh_touchpad(tp, lr, beta) {
-  //console.log('Replotting', lr, beta);
+function sweep(eigs, lr_min, lr_max, beta_min, beta_max, resolution) {
+  resolution = resolution || 10;
+  //var all_radius = [];
+  var shifted_rates = [];
+  var flat_shifted_rates = {};
+  flat_shifted_rates.resolution = resolution;
+  flat_shifted_rates.sweep = [];
 
-  var b = blob;
+  for(var k=0; k<resolution+1;k++){
+
+    var lr = lr_min + k/resolution*(lr_max-lr_min);
+    //all_radius[k] = [];
+    shifted_rates[k] = [];
+
+    for(var l=0; l<resolution+1;l++){
+
+      var beta = beta_min + l/resolution*(beta_max-beta_min);
+
+      // for each eigenvalue
+      var radius_eigs = 0;
+      var radius_shifted_eigs = 0;
+
+      for(var i=0;i<eigs.length;i++){
+        var new_eigs = shift_eig(eigs[i], lr, beta);
+
+        var transition_eig = math.subtract(1, math.multiply(lr, eigs[i]));
+
+        // Get convergence circles
+        var abs_eig = math.abs(transition_eig);
+        var abs_shifted_eig = math.max(math.abs(new_eigs[0]), math.abs(new_eigs[1]));
+        radius_eigs = math.max(radius_eigs, abs_eig);
+        radius_shifted_eigs = math.max(radius_shifted_eigs, abs_shifted_eig);
+      }
+
+      shifted_rates[k][l] = radius_shifted_eigs;
+      flat_shifted_rates.sweep.push({
+        lr: lr,
+        beta: beta,
+        rate: radius_shifted_eigs
+      });
+
+    }
+  }
+  return flat_shifted_rates;
+}
+
+
+function refresh_touchpad(tp, lr, beta, shifted_rates) {
+  // Plot heat map if shifted_rates is given
+  if(shifted_rates) {
+    var heatmapCell = tp.touchpad.selectAll('.heatmapCell')
+    .data(shifted_rates.sweep);
+
+    for(var i=0; i<shifted_rates.sweep.length;i++){
+      shifted_rates.sweep[i];
+    }
+    tp.touchpad.selectAll('heatmapCell')
+  }
 
   var lr_box = create_unique(tp.touchpad, 'text', 'lr', ['box'])
   .attr("x", 20)
