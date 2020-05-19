@@ -1,0 +1,42 @@
+<!doctype html>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/4.4.2/math.min.js">
+</script>
+
+<script>
+function shift_eig(eig){
+
+  var discriminant =  math.subtract(math.square(math.subtract(1+beta, math.multiply(lr, eigs[i]))), 4*beta);
+
+  var new_eig1 = math.multiply(0.5, (math.add(math.subtract(1+beta, math.multiply(lr, eig)), math.sqrt(discriminant))));
+
+  var new_eig2 = math.multiply(0.5, (math.subtract(math.subtract(1+beta, math.multiply(lr, eig)), math.sqrt(discriminant))));
+
+  return [new_eig1, new_eig2];
+}
+
+var eigs = [
+  math.complex('0.5-0.8660254i'),
+  math.complex('0.5+0.8660254i'),
+  math.complex('0.5-0.8660254i'),
+  math.complex('0.5+0.8660254i')
+];
+var lr = 0.1;
+var beta = -0.25;
+var one = math.complex(1);
+var transition_eigs = [];
+var shifted_eigs = [];
+for(var i=0;i<eigs.length;i++){
+  transition_eigs[i] = math.subtract(one, math.multiply(lr, eigs[i]));
+
+  var new_eigs = shift_eig(eigs[i]);
+  shifted_eigs[shifted_eigs.length] = new_eigs[0];
+  shifted_eigs[shifted_eigs.length] = new_eigs[1];
+}
+document.write('Delta eigenvalues<br>');
+document.write(eigs);
+document.write('<br>Transition eigenvalues<br>');
+document.write(transition_eigs);
+document.write('<br>Shifted eigenvalues<br>');
+document.write(shifted_eigs);
+</script>
